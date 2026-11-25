@@ -1,13 +1,21 @@
-"""School IT Equipment Inventory Tracker - basic Tkinter application."""
-
+'''
+Diego Eusse
+CS 319
+Professor: Ankit Agrawal 
+November 25, 2026
+School IT Equipment Inventory Tracker
+A simple softare application to track the inventory of IT equipment in a school district. 
+The program allows users to register new equipment, view the inventory, and search for specific items by asset tag. It also provides a summary of equipment counts by school and allows for the unassignment and deletion of equipment records.
+'''
+#First importing SQLite3 and Tkinter libraries to use in the program.
 import sqlite3
 import tkinter as tk
 from tkinter import messagebox, ttk
 
 from database import (SCHOOLS, create_table, add_equipment, view_equipment,
-                      school_counts, add_demo_equipment, unassign_equipment, delete_equipment)
+                      school_counts, add_demo_equipment, unassign_equipment, delete_equipment, search_equipment)
 
-
+#Saving the equipment information entered by the user into the database.
 def save_equipment():
     asset_tag = asset_entry.get().strip()
     equipment_type = type_choice.get()
@@ -29,7 +37,7 @@ def save_equipment():
     refresh_screen()
     messagebox.showinfo("Saved", "Equipment registered successfully!")
 
-
+#displaying the equipment information in the table on the GUI.
 def show_equipment():
     for item in equipment_table.get_children():
         equipment_table.delete(item)
@@ -38,6 +46,34 @@ def show_equipment():
     selected_type = type_filter.get()
     for record in view_equipment(selected_school, selected_type):
         equipment_table.insert("", tk.END, values=record)
+
+
+def find_equipment():
+    asset_tag = search_entry.get().strip()
+    
+    #displays error not eentering a asset tag to search for.
+    if asset_tag == "":
+        messagebox.showerror("Missing information", "Enter an asset tag to search.")
+        return
+
+    record = search_equipment(asset_tag)
+
+    if record is None:
+        messagebox.showinfo("Not found", "No equipment found with that asset tag.")
+        return
+
+    filter_choice.set("All Schools")
+    type_filter.set("All Types")
+
+    for item in equipment_table.get_children():
+        equipment_table.delete(item)
+
+    equipment_table.insert("", tk.END, values=record)
+
+
+def clear_search():
+    search_entry.delete(0, tk.END)
+    show_equipment()
 
 
 def show_school_counts():
@@ -94,7 +130,7 @@ def remove_equipment():
     else:
         messagebox.showerror("Not found", "This equipment record was not found.")
 
-
+#Now creating the main window of the applicaiton
 create_table()
 
 window = tk.Tk()
@@ -169,6 +205,15 @@ tk.Button(controls, text="Refresh", command=refresh_screen).pack(side="left", pa
 tk.Button(controls, text="Unassign Selected", command=remove_assignment).pack(side="left", padx=5)
 tk.Button(controls, text="Delete Selected", command=remove_equipment).pack(side="left", padx=5)
 tk.Button(controls, text="Add Demo Records", command=load_demo_data).pack(side="right")
+
+
+search_area = tk.Frame(inventory)
+search_area.pack(fill="x", pady=(0, 8))
+tk.Label(search_area, text="Search Asset Tag:").pack(side="left")
+search_entry = tk.Entry(search_area, width=25)
+search_entry.pack(side="left", padx=7)
+tk.Button(search_area, text="Search", command=find_equipment).pack(side="left", padx=4)
+tk.Button(search_area, text="Show All", command=clear_search).pack(side="left", padx=4)
 
 columns = ("Asset Tag", "Type", "Model", "School", "Status", "Assigned To", "Role")
 equipment_table = ttk.Treeview(inventory, columns=columns, show="headings", height=11)
