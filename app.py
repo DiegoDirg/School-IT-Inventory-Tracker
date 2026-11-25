@@ -13,7 +13,8 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 
 from database import (SCHOOLS, create_table, add_equipment, view_equipment,
-                      school_counts, add_demo_equipment, unassign_equipment, delete_equipment, search_equipment)
+                      school_counts, add_demo_equipment, unassign_equipment,
+                      delete_equipment, search_equipment, search_people)
 
 #Saving the equipment information entered by the user into the database.
 def save_equipment():
@@ -73,8 +74,28 @@ def find_equipment():
 
 def clear_search():
     search_entry.delete(0, tk.END)
+    person_search_entry.delete(0, tk.END)
     show_equipment()
 
+def find_person():
+    name_or_id = person_search_entry.get().strip()
+    
+    if name_or_id =="":
+        messagebox.showerror("Missing information", "Enter a name or ID to search.")
+        return
+    
+    records = search_people(name_or_id)
+    
+    if len(records) == 0:
+        messagebox.showinfo("Not found", "No equipment found assigned to that person.")
+        return
+     #clear the equiment lsit before hwoing the seatrch 
+    for item in equipment_table.get_children():
+        equipment_table.delete(item)
+        
+    #display all wquiment assiggned to match the person
+    for record in records:
+        equipment_table.insert("", tk.END, values=record)
 
 def show_school_counts():
     for index, row in enumerate(school_counts()):
@@ -215,9 +236,20 @@ search_entry.pack(side="left", padx=7)
 tk.Button(search_area, text="Search", command=find_equipment).pack(side="left", padx=4)
 tk.Button(search_area, text="Show All", command=clear_search).pack(side="left", padx=4)
 
-columns = ("Asset Tag", "Type", "Model", "School", "Status", "Assigned To", "Role")
+# Search for students or staff using their name or ID
+people_area = tk.Frame(inventory)
+people_area.pack(fill="x", pady=(0, 8))
+
+tk.Label(people_area, text="Search Student/Staff:").pack(side="left")
+
+person_search_entry = tk.Entry(people_area, width=25)
+person_search_entry.pack(side="left", padx=7)
+
+tk.Button(people_area, text="Search Person", command=find_person).pack(side="left", padx=4)
+
+columns = ("Asset Tag", "Type", "Model", "School", "Status", "Assigned To", "Role", "Assigned ID")
 equipment_table = ttk.Treeview(inventory, columns=columns, show="headings", height=11)
-widths = (145, 100, 190, 110, 95, 160, 100)
+widths = (145, 100, 190, 110, 95, 160, 100, 110)
 for index, column in enumerate(columns):
     equipment_table.heading(column, text=column)
     equipment_table.column(column, width=widths[index], minwidth=70)
