@@ -1,3 +1,12 @@
+'''
+Diego Eusse
+CS 319
+Professor: Ankit Agrawal 
+November 25, 2026
+School IT Equipment Inventory Tracker
+A simple softare application to track the inventory of IT equipment in a school district. 
+The program allows users to register new equipment, view the inventory, and search for specific items by asset tag. It also provides a summary of equipment counts by school and allows for the unassignment and deletion of equipment records.
+'''
 """Save and retrieve equipment using a local SQLite database."""
 
 import os
@@ -5,7 +14,7 @@ import sqlite3
 
 DATABASE = os.path.join(os.path.dirname(__file__), "inventory.db")
 
-# Sample school labels for our project demonstration.
+# Schools within the inventory system
 SCHOOLS = ["School 1", "School 2", "School 3", "School 4", "School 5", "School 6"]
 
 
@@ -25,14 +34,16 @@ def create_table():
         )
     """)
 
-    # Add new columns to older versions without deleting saved equipment.
+    # Allow the addition of missing columns to older databases
     cursor.execute("PRAGMA table_info(Equipment)")
     columns = [column[1] for column in cursor.fetchall()]
 
     if "School" not in columns:
         cursor.execute("ALTER TABLE Equipment ADD COLUMN School TEXT NOT NULL DEFAULT 'Unassigned'")
+
     if "AssignedTo" not in columns:
         cursor.execute("ALTER TABLE Equipment ADD COLUMN AssignedTo TEXT NOT NULL DEFAULT ''")
+
     if "AssignedRole" not in columns:
         cursor.execute("ALTER TABLE Equipment ADD COLUMN AssignedRole TEXT NOT NULL DEFAULT ''")
 
@@ -40,19 +51,25 @@ def create_table():
     connection.close()
 
 
+# Add new equipment
 def add_equipment(asset_tag, equipment_type, model, school):
     connection = sqlite3.connect(DATABASE)
+
     try:
         cursor = connection.cursor()
+
         cursor.execute(
             "INSERT INTO Equipment (AssetTag, Type, Model, School) VALUES (?, ?, ?, ?)",
             (asset_tag, equipment_type, model, school)
         )
+
         connection.commit()
+
     finally:
         connection.close()
 
 
+# Display equipment in the inventory
 def view_equipment(school="All Schools", equipment_type="All Types"):
     connection = sqlite3.connect(DATABASE)
     cursor = connection.cursor()
@@ -61,16 +78,19 @@ def view_equipment(school="All Schools", equipment_type="All Types"):
 
     if school == "All Schools" and equipment_type == "All Types":
         cursor.execute(f"SELECT {fields} FROM Equipment ORDER BY AssetTag")
+
     elif school == "All Schools":
         cursor.execute(
             f"SELECT {fields} FROM Equipment WHERE Type = ? ORDER BY AssetTag",
             (equipment_type,)
         )
+
     elif equipment_type == "All Types":
         cursor.execute(
             f"SELECT {fields} FROM Equipment WHERE School = ? ORDER BY AssetTag",
             (school,)
         )
+
     else:
         cursor.execute(
             f"SELECT {fields} FROM Equipment WHERE School = ? AND Type = ? ORDER BY AssetTag",
@@ -78,19 +98,40 @@ def view_equipment(school="All Schools", equipment_type="All Types"):
         )
 
     equipment = cursor.fetchall()
+
     connection.close()
     return equipment
 
 
-def school_counts():
-    """Count only Chromebooks for each school, grouped by status."""
+#Search for equipment using the asset tag entered by the user
+def search_equipment(asset_tag):
     connection = sqlite3.connect(DATABASE)
     cursor = connection.cursor()
+
+    cursor.execute(
+        "SELECT AssetTag, Type, Model, School, Status, AssignedTo, AssignedRole "
+        "FROM Equipment WHERE AssetTag = ?",
+        (asset_tag.strip(),)
+    )
+
+    equipment = cursor.fetchone()
+
+    connection.close()
+    return equipment
+
+
+# Count of Chromebooks for each school
+def school_counts():
+    connection = sqlite3.connect(DATABASE)
+    cursor = connection.cursor()
+
     cursor.execute("SELECT School, Status FROM Equipment WHERE Type = 'Chromebook'")
+
     chromebooks = cursor.fetchall()
     connection.close()
 
     results = []
+
     for school in SCHOOLS:
         total = 0
         available = 0
@@ -100,10 +141,13 @@ def school_counts():
         for record_school, status in chromebooks:
             if record_school == school:
                 total += 1
+
                 if status == "Available":
                     available += 1
+
                 elif status == "Assigned":
                     assigned += 1
+
                 elif status == "Repair":
                     repair += 1
 
@@ -112,46 +156,64 @@ def school_counts():
     return results
 
 
+# Remove the person assigned to equipment
 def unassign_equipment(asset_tag):
-    """Remove the assignee but keep the equipment in the inventory."""
     connection = sqlite3.connect(DATABASE)
     cursor = connection.cursor()
+
     cursor.execute(
         "UPDATE Equipment SET Status = 'Available', AssignedTo = '', AssignedRole = '' "
         "WHERE AssetTag = ? AND Status = 'Assigned'",
         (asset_tag,)
     )
+
     changed = cursor.rowcount > 0
+
     connection.commit()
     connection.close()
+
     return changed
 
 
+# Delete equipment from the database
 def delete_equipment(asset_tag):
-    """Permanently delete an equipment record by asset tag."""
     connection = sqlite3.connect(DATABASE)
     cursor = connection.cursor()
-    cursor.execute("DELETE FROM Equipment WHERE AssetTag = ?", (asset_tag,))
+
+    cursor.execute(
+        "DELETE FROM Equipment WHERE AssetTag = ?",
+        (asset_tag,)
+    )
+
     deleted = cursor.rowcount > 0
+
     connection.commit()
     connection.close()
+
     return deleted
 
 
+# Add demonstration equipment records
 def add_demo_equipment():
-    """Add sample Chromebooks, staff laptops, projectors, and cameras."""
     chromebook_counts = [3, 5, 2, 6, 4, 7]
-    chromebook_models = ["Dell 3100", "HP Chromebook", "ASUS Chromebook"]
+
+    chromebook_models = [
+        "Dell 3100",
+        "HP Chromebook",
+        "ASUS Chromebook"
+    ]
 
     connection = sqlite3.connect(DATABASE)
     cursor = connection.cursor()
 
-    # Each school has a different number of Chromebooks.
+    # Each school has a different number of Chromebooks
     for school_number in range(1, 7):
         school = SCHOOLS[school_number - 1]
+
         for number in range(1, chromebook_counts[school_number - 1] + 1):
-            asset_tag = f"DEMO-{school_number}-{number:03d}"  # Same IDs as the earlier demo version.
+            asset_tag = f"DEMO-{school_number}-{number:03d}"
             model = chromebook_models[(school_number + number) % len(chromebook_models)]
+
             status = "Available"
             assigned_to = ""
             assigned_role = ""
@@ -160,8 +222,10 @@ def add_demo_equipment():
                 status = "Assigned"
                 assigned_to = f"Sample Student {school_number:02d}"
                 assigned_role = "Student"
+
             elif number == 2 and school_number in [2, 4]:
                 status = "Repair"
+
             elif number == 3 and school_number in [1, 5]:
                 status = "Assigned"
                 assigned_to = f"Sample Staff {school_number:02d}"
@@ -174,7 +238,7 @@ def add_demo_equipment():
                 (asset_tag, "Chromebook", model, school, status, assigned_to, assigned_role)
             )
 
-    # A handful of other devices, including laptops issued to staff.
+    # Other schools equipment
     extra_devices = [
         ("DEMO-LT-101", "Laptop", "HP Laptop", "School 1", "Assigned", "Sample Staff 07", "Staff"),
         ("DEMO-LT-102", "Laptop", "ASUS Laptop", "School 2", "Assigned", "Sample Staff 08", "Staff"),
