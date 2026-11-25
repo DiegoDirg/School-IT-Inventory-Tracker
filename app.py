@@ -10,7 +10,12 @@ The program allows users to register new equipment, view the inventory, and sear
 #First importing SQLite3 and Tkinter libraries to use in the program.
 import sqlite3
 import tkinter as tk
+
 from tkinter import messagebox, ttk
+# Importing people search classes for DIP SOLID Principle
+from people_search import PeopleSearchService, SQLitePeopleSearch
+
+people_service = PeopleSearchService(SQLitePeopleSearch())
 
 from database import (SCHOOLS, create_table, add_equipment, view_equipment,
                       school_counts, add_demo_equipment, unassign_equipment,
@@ -76,7 +81,18 @@ def clear_search():
     search_entry.delete(0, tk.END)
     person_search_entry.delete(0, tk.END)
     show_equipment()
-
+    
+#displayng the equiment records in the inverntory table  (SOLID Principle "SRP")
+def display_result(records):
+    
+    #clear the existing equipment list
+    for item in equipment_table.get_children():
+        equipment_table.delete(item)
+        
+    #display new records
+    for record in records:
+        equipment_table.insert("", tk.END, values=record)
+    
 def find_person():
     name_or_id = person_search_entry.get().strip()
     
@@ -84,19 +100,15 @@ def find_person():
         messagebox.showerror("Missing information", "Enter a name or ID to search.")
         return
     
-    records = search_people(name_or_id)
+    records = people_service.find(name_or_id)
     
     if len(records) == 0:
         messagebox.showinfo("Not found", "No equipment found assigned to that person.")
         return
-     #clear the equiment lsit before hwoing the seatrch 
-    for item in equipment_table.get_children():
-        equipment_table.delete(item)
-        
-    #display all wquiment assiggned to match the person
-    for record in records:
-        equipment_table.insert("", tk.END, values=record)
-
+    
+    display_result(records)
+  
+    
 def show_school_counts():
     for index, row in enumerate(school_counts()):
         school, total, available, assigned, repair = row
@@ -154,33 +166,42 @@ def remove_equipment():
 #Now creating the main window of the applicaiton
 create_table()
 
+# Creates the main window of the application and sets its title and size.
 window = tk.Tk()
 window.title("School IT Equipment Inventory Tracker")
 window.geometry("1130x680")
 
+# Creates the heading and description of the application.
 heading = tk.Frame(window)
 heading.pack(fill="x", pady=12)
 tk.Label(heading, text="School IT Equipment Inventory Tracker", font=("Arial", 18, "bold")).pack()
 tk.Label(heading, text="District equipment records | School and staff data only").pack()
 
+#top section of the application
 top = tk.Frame(window)
 top.pack(fill="x", padx=15)
 
+#equipment registration section.
 registration = tk.LabelFrame(top, text="Register Equipment", padx=15, pady=8)
 registration.pack(side="left", fill="both", padx=(0, 12))
 
+# Allows the user to enter the equipment's asset tag.
 tk.Label(registration, text="Asset Tag:").pack(anchor="w")
 asset_entry = tk.Entry(registration, width=31)
 asset_entry.pack(pady=(0, 8))
 
+# Creates a dropdown menu for selecting the equipment type.
 tk.Label(registration, text="Equipment Type:").pack(anchor="w")
 type_choice = tk.StringVar(value="Chromebook")
 tk.OptionMenu(registration, type_choice, "Chromebook", "Laptop", "Projector", "Camera", "Other").pack(anchor="w", pady=(0, 8))
 
+
+#Allows user to select model of the equipment and the school it belongs to.
 tk.Label(registration, text="Model (e.g. Dell 3100, HP, ASUS):").pack(anchor="w")
 model_entry = tk.Entry(registration, width=31)
 model_entry.pack(pady=(0, 8))
 
+#Dropdown menu
 tk.Label(registration, text="School:").pack(anchor="w")
 school_choice = tk.StringVar(value=SCHOOLS[0])
 tk.OptionMenu(registration, school_choice, *SCHOOLS).pack(anchor="w", pady=(0, 8))
@@ -193,6 +214,7 @@ summary.pack(side="left", fill="both", expand=True)
 tk.Label(summary, text="School", font=("Arial", 10, "bold"), width=15, anchor="w").grid(row=0, column=0, sticky="w")
 tk.Label(summary, text="Total       Available       Assigned       Repair", font=("Consolas", 10, "bold")).grid(row=0, column=1, sticky="w")
 
+#loops throught the list of schools in order to display 
 count_labels = []
 for index, school in enumerate(SCHOOLS):
     tk.Label(summary, text=school, width=15, anchor="w").grid(row=index + 1, column=0, pady=9, sticky="w")
@@ -203,11 +225,14 @@ for index, school in enumerate(SCHOOLS):
 tk.Label(summary, text="Totals count Chromebooks only; other equipment appears below.", fg="gray").grid(
     row=7, column=0, columnspan=2, pady=(10, 0), sticky="w")
 
+#Window section for displaing the inventory 
 inventory = tk.LabelFrame(window, text="Equipment Inventory", padx=10, pady=8)
 inventory.pack(fill="both", expand=True, padx=15, pady=12)
 
+#Allows the user to filter equipment by school.
 controls = tk.Frame(inventory)
 controls.pack(fill="x", pady=(0, 8))
+
 tk.Label(controls, text="Show school:").pack(side="left")
 filter_choice = tk.StringVar(value="All Schools")
 filter_menu = ttk.Combobox(controls, textvariable=filter_choice, values=["All Schools"] + SCHOOLS + ["Unassigned"], state="readonly", width=16)
@@ -222,6 +247,7 @@ type_menu = ttk.Combobox(controls, textvariable=type_filter,
 type_menu.pack(side="left", padx=7)
 type_menu.bind("<<ComboboxSelected>>", lambda event: show_equipment())
 
+#Buttons for refreshing the screen, unassigning selected equipment, deleting selected equipment, and adding demo records.
 tk.Button(controls, text="Refresh", command=refresh_screen).pack(side="left", padx=5)
 tk.Button(controls, text="Unassign Selected", command=remove_assignment).pack(side="left", padx=5)
 tk.Button(controls, text="Delete Selected", command=remove_equipment).pack(side="left", padx=5)

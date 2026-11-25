@@ -113,7 +113,7 @@ def search_equipment(asset_tag):
     cursor = connection.cursor()
 
     cursor.execute(
-        "SELECT AssetTag, Type, Model, School, Status, AssignedTo, AssignedRole, AssignedID"
+        "SELECT AssetTag, Type, Model, School, Status, AssignedTo, AssignedRole, AssignedID "
         "FROM Equipment WHERE AssetTag = ?",
         (asset_tag.strip(),)
     )
