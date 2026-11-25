@@ -30,7 +30,8 @@ def create_table():
             Status TEXT NOT NULL DEFAULT 'Available',
             School TEXT NOT NULL DEFAULT 'Unassigned',
             AssignedTo TEXT NOT NULL DEFAULT '',
-            AssignedRole TEXT NOT NULL DEFAULT ''
+            AssignedRole TEXT NOT NULL DEFAULT '',
+            AssignedID TEXT NOT NULL DEFAULT ''
         )
     """)
 
@@ -46,6 +47,9 @@ def create_table():
 
     if "AssignedRole" not in columns:
         cursor.execute("ALTER TABLE Equipment ADD COLUMN AssignedRole TEXT NOT NULL DEFAULT ''")
+    
+    if "AssignedID" not in columns:
+        cursor.execute("ALTER TABLE Equipment ADD COLUMN AssignedID TEXT NOT NULL DEFAULT ''")
 
     connection.commit()
     connection.close()
@@ -74,7 +78,7 @@ def view_equipment(school="All Schools", equipment_type="All Types"):
     connection = sqlite3.connect(DATABASE)
     cursor = connection.cursor()
 
-    fields = "AssetTag, Type, Model, School, Status, AssignedTo, AssignedRole"
+    fields = "AssetTag, Type, Model, School, Status, AssignedTo, AssignedRole, AssignedID"
 
     if school == "All Schools" and equipment_type == "All Types":
         cursor.execute(f"SELECT {fields} FROM Equipment ORDER BY AssetTag")
@@ -109,7 +113,7 @@ def search_equipment(asset_tag):
     cursor = connection.cursor()
 
     cursor.execute(
-        "SELECT AssetTag, Type, Model, School, Status, AssignedTo, AssignedRole "
+        "SELECT AssetTag, Type, Model, School, Status, AssignedTo, AssignedRole, AssignedID "
         "FROM Equipment WHERE AssetTag = ?",
         (asset_tag.strip(),)
     )
@@ -119,6 +123,21 @@ def search_equipment(asset_tag):
     connection.close()
     return equipment
 
+#Search function to find equipment assigned to a specific person using the search text entered by the user.
+def search_people(search_text):
+    connection = sqlite3.connect(DATABASE)
+    cursor = connection.cursor()
+
+    cursor.execute(
+        "SELECT AssetTag, Type, Model, School, Status, AssignedTo, AssignedRole, AssignedID "
+        "FROM Equipment WHERE AssignedTo LIKE ? OR AssignedID = ? ORDER BY AssetTag",
+        ("%" + search_text.strip() + "%", search_text.strip())
+    )
+
+    equipment = cursor.fetchall()
+
+    connection.close()
+    return equipment
 
 # Count of Chromebooks for each school
 def school_counts():
@@ -260,6 +279,26 @@ def add_demo_equipment():
             "(AssetTag, Type, Model, School, Status, AssignedTo, AssignedRole) "
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
             device
+        )
+
+     # Give sample students their ID numbers
+    for number in range(1, 7):
+        name = f"Sample Student {number:02d}"
+        student_id = f"STU-{number:03d}"
+
+        cursor.execute(
+            "UPDATE Equipment SET AssignedID = ? WHERE AssignedTo = ? AND AssignedID = ''",
+            (student_id, name)
+        )
+
+    # Give sample staff their ID numbers
+    for number in range(1, 11):
+        name = f"Sample Staff {number:02d}"
+        staff_id = f"STA-{number:03d}"
+
+        cursor.execute(
+            "UPDATE Equipment SET AssignedID = ? WHERE AssignedTo = ? AND AssignedID = ''",
+            (staff_id, name)
         )
 
     connection.commit()
